@@ -23,6 +23,11 @@ struct IssueCount {
     issue_count: u64,
 }
 
+struct RankingEntry {
+    name: String,
+    count: u64,
+}
+
 fn main() {
     let opt = Opt::from_args();
 
@@ -53,10 +58,20 @@ fn main() {
     let mut vec = response
         .data
         .iter()
-        .map(|(user, issue_count)| (user, issue_count.issue_count))
+        .map(|(user, issue_count)| {
+            return RankingEntry {
+                name: user.to_string(),
+                count: issue_count.issue_count,
+            };
+        })
         .collect::<Vec<_>>();
+    vec.sort_by(|a, b| b.count.cmp(&a.count));
 
-    vec.sort_by(|a, b| b.1.cmp(&a.1));
+    println!("{0: <16} | {1: <10}", "Username", "Count");
+    println!("---------------- | ----------");
+    vec.iter().for_each(|entry| print_entry(entry));
+}
 
-    println!("{vec:?}");
+fn print_entry(entry: &RankingEntry) {
+    println!("{0: <16} | {1: <10}", entry.name, entry.count);
 }
