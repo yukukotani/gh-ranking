@@ -31,6 +31,16 @@ struct RankingEntry {
 fn main() {
     let opt = Opt::from_args();
 
+    match opt.action.to_lowercase().as_str() {
+        "openpr" => open_pr_command(opt),
+        _ => {
+            eprintln!("Invalid action: {}", opt.action);
+            std::process::exit(1);
+        }
+    }
+}
+
+fn open_pr_command(opt: Opt) {
     let search_queries = ["yukukotani", "sosukesuzuki"]
         .map(|user| {
             let query = format!("author:{} type:pr org:{}", user, opt.org);
