@@ -1,6 +1,6 @@
 use std::{collections::HashMap, process::Command};
 
-use serde::{Deserialize, Serialize};
+use serde::{de::DeserializeOwned, Deserialize, Serialize};
 use structopt::StructOpt;
 
 #[derive(StructOpt)]
@@ -58,15 +58,9 @@ fn open_pr_command(opt: Opt) {
         search_queries
     );
 
-    let result = Command::new("gh")
-        .args(["api", "graphql", "-f", format!("query={}", query).as_str()])
-        .output()
-        .expect("error");
-
-    let response: Response = serde_json::from_slice(&result.stdout).unwrap();
+    let response: HashMap<String, IssueCount> = query_graphql(query);
 
     let mut vec = response
-        .data
         .iter()
         .map(|(user, issue_count)| {
             return RankingEntry {
@@ -84,4 +78,23 @@ fn open_pr_command(opt: Opt) {
 
 fn print_entry(entry: &RankingEntry) {
     println!("{0: <16} | {1: <10}", entry.name, entry.count);
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct GraphQLResponse<T> {
+    data: T,
+}
+
+fn query_graphql<T>(query: String) -> T
+where
+    T: DeserializeOwned,
+{
+    let result = Command::new("gh")
+        .args(["api", "graphql", "-f", format!("query={}", query).as_str()])
+        .output()
+        .expect("error");
+
+    let response: GraphQLResponse<T> = serde_json::from_slice(&result.stdout).unwrap();
+
+    return response.data;
 }
