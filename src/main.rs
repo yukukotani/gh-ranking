@@ -1,8 +1,13 @@
-use std::{collections::HashMap, fmt::Debug, process::Command};
+mod graphql;
+mod output;
 
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use serde_json::Value;
+use std::{collections::HashMap, fmt::Debug};
+
+use serde::{Deserialize, Serialize};
 use structopt::StructOpt;
+
+use output::print_entry;
+use output::RankingEntry;
 
 #[derive(StructOpt)]
 #[structopt(name = "gh-ranking")]
@@ -22,11 +27,6 @@ struct Response {
 #[serde(rename_all = "camelCase")]
 struct IssueCount {
     issue_count: u64,
-}
-
-struct RankingEntry {
-    name: String,
-    count: u64,
 }
 
 fn main() {
@@ -77,7 +77,7 @@ fn get_open_pr_count(users: &[String], org: &str) -> Vec<RankingEntry> {
         search_queries
     );
 
-    let response: HashMap<String, IssueCount> = query_graphql(query);
+    let response: HashMap<String, IssueCount> = graphql::query(query);
 
     return response
         .iter()
@@ -126,7 +126,7 @@ fn get_org_members(org: &str) -> Vec<String> {
         org
     );
 
-    let response: Response = query_graphql(query);
+    let response: Response = graphql::query(query);
 
     return response
         .organization
@@ -137,34 +137,4 @@ fn get_org_members(org: &str) -> Vec<String> {
             return member.login.to_string();
         })
         .collect::<Vec<_>>();
-}
-
-fn print_entry(entry: &RankingEntry) {
-    println!("{0: <16} | {1: <10}", entry.name, entry.count);
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct GraphQLResponse<T> {
-    data: Option<T>,
-    errors: Option<Vec<Value>>,
-}
-
-fn query_graphql<T>(query: String) -> T
-where
-    T: DeserializeOwned + Debug,
-{
-    let result = Command::new("gh")
-        .args(["api", "graphql", "-f", format!("query={}", query).as_str()])
-        .output()
-        .expect("error");
-
-    let response: GraphQLResponse<T> = serde_json::from_slice(&result.stdout).unwrap();
-
-    match response.data {
-        Some(data) => data,
-        None => {
-            eprintln!("{:#?}", response.errors);
-            std::process::exit(1);
-        }
-    }
 }
