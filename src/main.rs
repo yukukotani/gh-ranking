@@ -44,11 +44,23 @@ fn main() {
 fn open_pr_command(opt: Opt) {
     let members = get_org_members(&opt.org);
 
-    let search_queries = members
+    let mut vec = members
+        .chunks(10)
+        .flat_map(|users| get_open_pr_count(users, opt.org.as_str()))
+        .collect::<Vec<_>>();
+    vec.sort_by(|a, b| b.count.cmp(&a.count));
+
+    println!("{0: <16} | {1: <10}", "Username", "Count");
+    println!("---------------- | ----------");
+    vec.iter().for_each(|entry| print_entry(entry));
+}
+
+fn get_open_pr_count(users: &[String], org: &str) -> Vec<RankingEntry> {
+    let search_queries = users
         .iter()
         .enumerate()
         .map(|(i, user)| {
-            let query = format!("author:{} type:pr org:{}", user, opt.org);
+            let query = format!("author:{} type:pr org:{}", user, org);
             return format!(
                 "{}: search(query: \"{}\", type: ISSUE, first: 0) {{ issueCount }}",
                 format!("user_{}", i),
@@ -67,21 +79,16 @@ fn open_pr_command(opt: Opt) {
 
     let response: HashMap<String, IssueCount> = query_graphql(query);
 
-    let mut vec = response
+    return response
         .iter()
         .map(|(key, issue_count)| {
             let i = key[5..].parse::<usize>().unwrap();
             return RankingEntry {
-                name: members[i].to_string(),
+                name: users[i].to_string(),
                 count: issue_count.issue_count,
             };
         })
         .collect::<Vec<_>>();
-    vec.sort_by(|a, b| b.count.cmp(&a.count));
-
-    println!("{0: <16} | {1: <10}", "Username", "Count");
-    println!("---------------- | ----------");
-    vec.iter().for_each(|entry| print_entry(entry));
 }
 
 fn get_org_members(org: &str) -> Vec<String> {
@@ -109,7 +116,7 @@ fn get_org_members(org: &str) -> Vec<String> {
     let query = format!(
         "query {{
             organization(login: \"{}\") {{
-                membersWithRole(first: 10) {{
+                membersWithRole(first: 50) {{
                     nodes {{
                         login
                     }}
