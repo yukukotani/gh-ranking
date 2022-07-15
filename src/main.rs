@@ -42,11 +42,15 @@ fn main() {
 }
 
 fn open_pr_command(opt: Opt) {
+    println!("\r\\e[nK Fetching members");
     let members = get_org_members(&opt.org);
 
     let mut vec = members
         .chunks(10)
-        .flat_map(|users| get_open_pr_count(users, opt.org.as_str()))
+        .flat_map(|users| {
+            println!("\rFetching data of {:?}", users);
+            return get_open_pr_count(users, opt.org.as_str());
+        })
         .collect::<Vec<_>>();
     vec.sort_by(|a, b| b.count.cmp(&a.count));
 
@@ -78,7 +82,6 @@ fn get_open_pr_count(users: &[String], org: &str) -> Vec<RankingEntry> {
         search_queries
     );
 
-    println!("Fetching data of {:?}", users);
     let response: HashMap<String, IssueCount> = graphql::query(query);
 
     return response
@@ -128,7 +131,6 @@ fn get_org_members(org: &str) -> Vec<String> {
         org
     );
 
-    println!("Fetching members");
     let response: Response = graphql::query(query);
 
     return response
