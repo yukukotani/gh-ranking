@@ -1,6 +1,7 @@
-use std::{collections::HashMap, process::Command};
+use std::{collections::HashMap, fmt::Debug, process::Command};
 
 use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde_json::Value;
 use structopt::StructOpt;
 
 #[derive(StructOpt)]
@@ -41,14 +42,20 @@ fn main() {
 }
 
 fn open_pr_command(opt: Opt) {
-    let search_queries = ["yukukotani", "sosukesuzuki"]
-        .map(|user| {
+    let members = get_org_members(&opt.org);
+
+    let search_queries = members
+        .iter()
+        .enumerate()
+        .map(|(i, user)| {
             let query = format!("author:{} type:pr org:{}", user, opt.org);
             return format!(
                 "{}: search(query: \"{}\", type: ISSUE, first: 0) {{ issueCount }}",
-                user, query
+                format!("user_{}", i),
+                query
             );
         })
+        .collect::<Vec<String>>()
         .join("\n");
 
     let query = format!(
@@ -62,9 +69,10 @@ fn open_pr_command(opt: Opt) {
 
     let mut vec = response
         .iter()
-        .map(|(user, issue_count)| {
+        .map(|(key, issue_count)| {
+            let i = key[5..].parse::<usize>().unwrap();
             return RankingEntry {
-                name: user.to_string(),
+                name: members[i].to_string(),
                 count: issue_count.issue_count,
             };
         })
@@ -76,18 +84,67 @@ fn open_pr_command(opt: Opt) {
     vec.iter().for_each(|entry| print_entry(entry));
 }
 
+fn get_org_members(org: &str) -> Vec<String> {
+    #[derive(Serialize, Deserialize, Debug)]
+    #[serde(rename_all = "camelCase")]
+    struct Response {
+        organization: Organization,
+    }
+    #[derive(Serialize, Deserialize, Debug)]
+    #[serde(rename_all = "camelCase")]
+    struct Organization {
+        members_with_role: MembersConnection,
+    }
+    #[derive(Serialize, Deserialize, Debug)]
+    #[serde(rename_all = "camelCase")]
+    struct MembersConnection {
+        nodes: Vec<Member>,
+    }
+    #[derive(Serialize, Deserialize, Debug)]
+    #[serde(rename_all = "camelCase")]
+    struct Member {
+        login: String,
+    }
+
+    let query = format!(
+        "query {{
+            organization(login: \"{}\") {{
+                membersWithRole(first: 10) {{
+                    nodes {{
+                        login
+                    }}
+                }}
+            }}
+        }}",
+        org
+    );
+
+    let response: Response = query_graphql(query);
+
+    return response
+        .organization
+        .members_with_role
+        .nodes
+        .iter()
+        .map(|member| {
+            return member.login.to_string();
+        })
+        .collect::<Vec<_>>();
+}
+
 fn print_entry(entry: &RankingEntry) {
     println!("{0: <16} | {1: <10}", entry.name, entry.count);
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 struct GraphQLResponse<T> {
-    data: T,
+    data: Option<T>,
+    errors: Option<Vec<Value>>,
 }
 
 fn query_graphql<T>(query: String) -> T
 where
-    T: DeserializeOwned,
+    T: DeserializeOwned + Debug,
 {
     let result = Command::new("gh")
         .args(["api", "graphql", "-f", format!("query={}", query).as_str()])
@@ -96,5 +153,11 @@ where
 
     let response: GraphQLResponse<T> = serde_json::from_slice(&result.stdout).unwrap();
 
-    return response.data;
+    match response.data {
+        Some(data) => data,
+        None => {
+            eprintln!("{:#?}", response.errors);
+            std::process::exit(1);
+        }
+    }
 }
