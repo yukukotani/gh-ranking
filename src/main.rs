@@ -50,6 +50,7 @@ fn open_pr_command(opt: Opt) {
         .collect::<Vec<_>>();
     vec.sort_by(|a, b| b.count.cmp(&a.count));
 
+    println!("\nResult:\n");
     println!("{0: <16} | {1: <10}", "Username", "Count");
     println!("---------------- | ----------");
     vec.iter().for_each(|entry| print_entry(entry));
@@ -77,6 +78,7 @@ fn get_open_pr_count(users: &[String], org: &str) -> Vec<RankingEntry> {
         search_queries
     );
 
+    println!("Fetching data of {:?}", users);
     let response: HashMap<String, IssueCount> = graphql::query(query);
 
     return response
@@ -116,7 +118,7 @@ fn get_org_members(org: &str) -> Vec<String> {
     let query = format!(
         "query {{
             organization(login: \"{}\") {{
-                membersWithRole(first: 50) {{
+                membersWithRole(first: 100) {{
                     nodes {{
                         login
                     }}
@@ -126,6 +128,7 @@ fn get_org_members(org: &str) -> Vec<String> {
         org
     );
 
+    println!("Fetching members");
     let response: Response = graphql::query(query);
 
     return response
