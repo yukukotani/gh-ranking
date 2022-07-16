@@ -18,6 +18,8 @@ struct Opt {
     org: String,
     #[structopt(short, long)]
     team: Option<String>,
+    #[structopt(short, long)]
+    query: Option<String>,
 }
 
 fn main() {
@@ -29,11 +31,13 @@ fn main() {
             action: _,
             ref org,
             team: Some(ref team),
+            query: _,
         } => get_team_members(&org, &team),
         Opt {
             action: _,
             ref org,
             team: _,
+            query: _,
         } => get_org_members(&org),
     };
 
@@ -51,14 +55,14 @@ fn open_pr_command(opt: Opt, members: Vec<String>) {
         .chunks(10)
         .flat_map(|users| {
             println!("Fetching data of {:?}", users);
-            return get_open_pr_count(users, opt.org.as_str());
+            return get_open_pr_count(users, &opt);
         })
         .collect::<Vec<_>>();
 
     print_entries(entries);
 }
 
-fn get_open_pr_count(users: &[String], org: &str) -> Vec<RankingEntry> {
+fn get_open_pr_count(users: &[String], opt: &Opt) -> Vec<RankingEntry> {
     #[derive(Serialize, Deserialize, Debug)]
     #[serde(rename_all = "camelCase")]
     struct IssueCount {
@@ -69,7 +73,12 @@ fn get_open_pr_count(users: &[String], org: &str) -> Vec<RankingEntry> {
         .iter()
         .enumerate()
         .map(|(i, user)| {
-            let query = format!("author:{} type:pr org:{}", user, org);
+            let query = format!(
+                "author:{} type:pr org:{} {}",
+                user,
+                opt.org,
+                opt.query.as_ref().unwrap_or(&"".to_string())
+            );
             return format!(
                 "{}: search(query: \"{}\", type: ISSUE, first: 0) {{ issueCount }}",
                 format!("user_{}", i),
