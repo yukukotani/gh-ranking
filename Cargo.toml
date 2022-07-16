@@ -2,6 +2,8 @@
 name = "gh-ranking"
 version = "0.1.0"
 edition = "2021"
+description = "Show in-organization ranking of GitHub activities such as review count."
+repository = "https://github.com/yukukotani/gh-ranking"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

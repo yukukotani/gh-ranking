@@ -10,14 +10,18 @@ use structopt::StructOpt;
 use output::RankingEntry;
 
 #[derive(StructOpt)]
-#[structopt(name = "gh-ranking")]
+#[structopt(name = "gh-ranking", about)]
 struct Opt {
+    /// Organization ID
     #[structopt(name = "ORGANIZATION")]
     org: String,
+    /// open-pr | review-pr
     #[structopt(name = "ACTION")]
     action: String,
+    /// Team ID to fetch users
     #[structopt(short, long)]
     team: Option<String>,
+    /// Additional GitHub search query
     #[structopt(short, long)]
     query: Option<String>,
 }
