@@ -42,13 +42,13 @@ fn main() {
 }
 
 fn open_pr_command(opt: Opt) {
-    println!("\r\\e[nK Fetching members");
+    println!("Fetching members");
     let members = get_org_members(&opt.org);
 
     let mut vec = members
         .chunks(10)
         .flat_map(|users| {
-            println!("\rFetching data of {:?}", users);
+            println!("Fetching data of {:?}", users);
             return get_open_pr_count(users, opt.org.as_str());
         })
         .collect::<Vec<_>>();
