@@ -12,10 +12,10 @@ use output::RankingEntry;
 #[derive(StructOpt)]
 #[structopt(name = "gh-ranking")]
 struct Opt {
+    #[structopt(name = "ORGANIZATION")]
+    org: String,
     #[structopt(name = "ACTION")]
     action: String,
-    #[structopt(short, long)]
-    org: String,
     #[structopt(short, long)]
     team: Option<String>,
     #[structopt(short, long)]
