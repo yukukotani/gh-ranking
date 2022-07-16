@@ -3,10 +3,10 @@ mod output;
 
 use std::{collections::HashMap, fmt::Debug};
 
+use output::print_entries;
 use serde::{Deserialize, Serialize};
 use structopt::StructOpt;
 
-use output::print_entry;
 use output::RankingEntry;
 
 #[derive(StructOpt)]
@@ -18,17 +18,6 @@ struct Opt {
     org: String,
     #[structopt(short, long)]
     team: Option<String>,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-struct Response {
-    data: HashMap<String, IssueCount>,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-#[serde(rename_all = "camelCase")]
-struct IssueCount {
-    issue_count: u64,
 }
 
 fn main() {
@@ -58,22 +47,24 @@ fn main() {
 }
 
 fn open_pr_command(opt: Opt, members: Vec<String>) {
-    let mut vec = members
+    let entries = members
         .chunks(10)
         .flat_map(|users| {
             println!("Fetching data of {:?}", users);
             return get_open_pr_count(users, opt.org.as_str());
         })
         .collect::<Vec<_>>();
-    vec.sort_by(|a, b| b.count.cmp(&a.count));
 
-    println!("\nResult:\n");
-    println!("{0: <16} | {1: <10}", "Username", "Count");
-    println!("---------------- | ----------");
-    vec.iter().for_each(|entry| print_entry(entry));
+    print_entries(entries);
 }
 
 fn get_open_pr_count(users: &[String], org: &str) -> Vec<RankingEntry> {
+    #[derive(Serialize, Deserialize, Debug)]
+    #[serde(rename_all = "camelCase")]
+    struct IssueCount {
+        issue_count: u64,
+    }
+
     let search_queries = users
         .iter()
         .enumerate()
