@@ -16,6 +16,8 @@ struct Opt {
     action: String,
     #[structopt(short, long)]
     org: String,
+    #[structopt(short, long)]
+    team: Option<String>,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -32,8 +34,22 @@ struct IssueCount {
 fn main() {
     let opt = Opt::from_args();
 
+    println!("Fetching members");
+    let members = match opt {
+        Opt {
+            action: _,
+            ref org,
+            team: Some(ref team),
+        } => get_team_members(&org, &team),
+        Opt {
+            action: _,
+            ref org,
+            team: _,
+        } => get_org_members(&org),
+    };
+
     match opt.action.to_lowercase().as_str() {
-        "openpr" => open_pr_command(opt),
+        "openpr" => open_pr_command(opt, members),
         _ => {
             eprintln!("Invalid action: {}", opt.action);
             std::process::exit(1);
@@ -41,10 +57,7 @@ fn main() {
     }
 }
 
-fn open_pr_command(opt: Opt) {
-    println!("Fetching members");
-    let members = get_org_members(&opt.org);
-
+fn open_pr_command(opt: Opt, members: Vec<String>) {
     let mut vec = members
         .chunks(10)
         .flat_map(|users| {
@@ -136,6 +149,62 @@ fn get_org_members(org: &str) -> Vec<String> {
     return response
         .organization
         .members_with_role
+        .nodes
+        .iter()
+        .map(|member| {
+            return member.login.to_string();
+        })
+        .collect::<Vec<_>>();
+}
+
+fn get_team_members(org: &str, team: &str) -> Vec<String> {
+    #[derive(Serialize, Deserialize, Debug)]
+    #[serde(rename_all = "camelCase")]
+    struct Response {
+        organization: Organization,
+    }
+    #[derive(Serialize, Deserialize, Debug)]
+    #[serde(rename_all = "camelCase")]
+    struct Organization {
+        team: Team,
+    }
+    #[derive(Serialize, Deserialize, Debug)]
+    #[serde(rename_all = "camelCase")]
+    struct Team {
+        members: MembersConnection,
+    }
+    #[derive(Serialize, Deserialize, Debug)]
+    #[serde(rename_all = "camelCase")]
+    struct MembersConnection {
+        nodes: Vec<Member>,
+    }
+    #[derive(Serialize, Deserialize, Debug)]
+    #[serde(rename_all = "camelCase")]
+    struct Member {
+        login: String,
+    }
+
+    let query = format!(
+        "query {{
+            organization(login: \"{}\") {{
+                team(slug: \"{}\") {{
+                    members(first: 100) {{
+                        nodes {{
+                            login
+                        }}
+                    }}
+                }}
+            }}
+        }}",
+        org, team
+    );
+
+    let response: Response = graphql::query(query);
+
+    return response
+        .organization
+        .team
+        .members
         .nodes
         .iter()
         .map(|member| {
